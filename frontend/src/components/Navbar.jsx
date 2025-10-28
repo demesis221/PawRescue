@@ -1,9 +1,19 @@
-import { Link } from 'react-router-dom';
-import { PawPrint, Menu, X, Phone } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { PawPrint, Menu, X, Phone, LogOut, User, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    setShowDropdown(false);
+    navigate('/');
+  };
 
   return (
     <header className="bg-white/95 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-100">
@@ -68,9 +78,50 @@ export default function Navbar() {
               <Phone className="w-4 h-4" />
               Emergency
             </a>
-            <button className="btn-primary text-sm px-6 py-2">
-              Login
-            </button>
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-full font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl text-sm"
+                >
+                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <span className="hidden md:inline">{profile?.full_name || 'User'}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <p className="text-sm font-semibold text-gray-800">{profile?.full_name || 'User'}</p>
+                      <p className="text-xs text-gray-500">@{profile?.username || 'username'}</p>
+                    </div>
+                    <Link
+                      to="/profile"
+                      onClick={() => setShowDropdown(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      My Profile
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link to="/login">
+                <button className="btn-primary text-sm px-6 py-2">
+                  Login
+                </button>
+              </Link>
+            )}
           </div>
         </nav>
       </div>

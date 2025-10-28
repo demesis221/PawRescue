@@ -7,6 +7,10 @@ import MapView from './pages/MapView';
 import RescuerDashboard from './pages/RescuerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import About from './pages/About';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import TestConnection from './pages/TestConnection';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -21,6 +25,10 @@ function App() {
             <Route path="/dashboard" element={<RescuerDashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/about" element={<About />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/test-connection" element={<TestConnection />} />
           </Routes>
         </main>
         <Footer />
