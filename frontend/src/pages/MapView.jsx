@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
 import { MapPin, Filter, Search, Clock, Heart, AlertTriangle, CheckCircle, Eye, Calendar, Phone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Card from '../components/Card';
@@ -102,6 +104,16 @@ export default function MapView() {
     low: 'border-l-green-500 bg-green-50'
   };
 
+  const getMarkerIcon = (urgency) => {
+    const color = urgency === 'high' ? '#ef4444' : urgency === 'medium' ? '#eab308' : '#22c55e';
+    return L.divIcon({
+      className: 'custom-marker',
+      html: `<div style="position: relative; background-color: ${color}; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><div style="width: 10px; height: 10px; background-color: white; border-radius: 50%;"></div></div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 30]
+    });
+  };
+
   const filteredReports = mockReports.filter(report => {
     const matchesFilter = filter === 'all' || report.status === filter;
     const matchesSearch = report.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,7 +132,6 @@ export default function MapView() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-gradient-to-r from-[#00273C] to-[#2C6975] text-white py-12">
         <div className="max-w-7xl mx-auto px-4">
           <motion.div 
@@ -136,7 +147,6 @@ export default function MapView() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <Card className="text-center p-4">
@@ -170,7 +180,6 @@ export default function MapView() {
           </motion.div>
         </div>
 
-        {/* Filters and Search */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -199,40 +208,59 @@ export default function MapView() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Map Section */}
-          <div className="lg:col-span-2">
-            <Card className="h-[700px] relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-teal-50 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-24 h-24 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <MapPin className="w-12 h-12 text-white" />
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-800">Urgency Levels</h3>
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <span>Critical</span>
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Interactive Rescue Map</h3>
-                  <p className="text-gray-600 mb-6 max-w-md">Real-time tracking of rescue operations across Cebu City. Map integration with Leaflet coming soon.</p>
-                  <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full mx-auto mb-2"></div>
-                      <div className="text-xs text-gray-600">Reported</div>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <div className="w-3 h-3 bg-purple-500 rounded-full mx-auto mb-2"></div>
-                      <div className="text-xs text-gray-600">In Progress</div>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-2"></div>
-                      <div className="text-xs text-gray-600">Rescued</div>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full mx-auto mb-2"></div>
-                      <div className="text-xs text-gray-600">Adopted</div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <span>High</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span>Normal</span>
                   </div>
                 </div>
               </div>
             </Card>
+            <Card className="h-[650px] overflow-hidden">
+              <MapContainer center={[10.3157, 123.8854]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                />
+                {filteredReports.map(report => (
+                  <Marker key={report.id} position={[report.lat, report.lng]} icon={getMarkerIcon(report.urgency)}>
+                    <Popup>
+                      <div className="p-2">
+                        <img src={report.image} alt={report.breed} className="w-full h-32 object-cover rounded-lg mb-2" />
+                        <h3 className="font-bold text-lg mb-1">{report.breed}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{report.location}</p>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2 py-1 rounded-full text-xs text-white ${statusColors[report.status]}`}>
+                            {report.status.replace('_', ' ').toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-2">{report.description}</p>
+                        <button
+                          onClick={() => setSelectedReport(report)}
+                          className="w-full bg-orange-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-orange-600 transition"
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            </Card>
           </div>
 
-          {/* Reports List */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-xl">Active Reports</h3>
@@ -290,7 +318,6 @@ export default function MapView() {
           </div>
         </div>
 
-        {/* Detailed Report Modal */}
         {selectedReport && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <motion.div
