@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Camera, MapPin, Upload, AlertTriangle, Clock, Phone, CheckCircle, Info } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { Camera, MapPin, Upload, AlertTriangle, Clock, Phone, CheckCircle, Info, Maximize, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -7,6 +8,7 @@ import Modal from '../components/Modal';
 
 export default function Report() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [formData, setFormData] = useState({
     animalType: '',
     urgency: '',
@@ -15,8 +17,28 @@ export default function Report() {
     contactName: '',
     contactPhone: '',
     image: null,
-    condition: ''
+    condition: '',
+    coordinates: [10.3157, 123.8854]
   });
+
+  function LocationMarker() {
+    useMapEvents({
+      async click(e) {
+        const { lat, lng } = e.latlng;
+        setFormData({ ...formData, coordinates: [lat, lng] });
+        
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await response.json();
+          const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          setFormData(prev => ({ ...prev, location: address, coordinates: [lat, lng] }));
+        } catch (error) {
+          setFormData(prev => ({ ...prev, location: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, coordinates: [lat, lng] }));
+        }
+      },
+    });
+    return <Marker position={formData.coordinates} />;
+  }
   const [showModal, setShowModal] = useState(false);
 
   const handleSubmit = (e) => {
@@ -190,15 +212,27 @@ export default function Report() {
                   </div>
 
                   <div className="mb-6">
-                    <div className="bg-gradient-to-r from-blue-100 to-teal-100 rounded-xl p-6">
-                      <div className="flex items-center justify-center text-gray-600">
-                        <MapPin className="w-12 h-12 mb-2" />
-                        <div className="ml-4">
-                          <h3 className="font-semibold">Interactive Map</h3>
-                          <p className="text-sm">Pin exact location feature coming soon</p>
-                        </div>
-                      </div>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-semibold">Pin Location on Map</label>
+                      <button
+                        type="button"
+                        onClick={() => setIsMapFullscreen(true)}
+                        className="flex items-center gap-2 px-3 py-1 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
+                      >
+                        <Maximize className="w-4 h-4" />
+                        Fullscreen
+                      </button>
                     </div>
+                    <div className="rounded-xl overflow-hidden border-2 border-gray-300" style={{ height: '400px' }}>
+                      <MapContainer center={formData.coordinates} zoom={13} style={{ height: '100%', width: '100%' }}>
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        />
+                        <LocationMarker />
+                      </MapContainer>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">Click on the map to pin the exact location</p>
                   </div>
 
                   <div>
@@ -322,6 +356,32 @@ export default function Report() {
           </div>
         </div>
       </Modal>
+
+      {/* Fullscreen Map Modal */}
+      {isMapFullscreen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full h-full max-w-7xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-xl font-bold">Select Location on Map</h3>
+              <button
+                onClick={() => setIsMapFullscreen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div style={{ height: 'calc(100% - 64px)' }}>
+              <MapContainer center={formData.coordinates} zoom={13} style={{ height: '100%', width: '100%' }}>
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                />
+                <LocationMarker />
+              </MapContainer>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

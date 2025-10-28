@@ -138,6 +138,58 @@ export default function AdminDashboard() {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
+            {/* System Overview */}
+            <Card className="p-8">
+              <h2 className="text-2xl font-bold mb-6">System Overview</h2>
+              <div className="space-y-6">
+                <motion.div 
+                  initial={{ opacity: 0, x: 50 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  transition={{ delay: 0.1, duration: 0.5 }}
+                  className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <Users className="w-8 h-8 text-orange-600" />
+                    <div>
+                      <p className="font-semibold text-gray-800">Total Users</p>
+                      <p className="text-sm text-gray-600">Active community members</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-orange-600">{stats.totalUsers}</p>
+                </motion.div>
+                <motion.div 
+                  initial={{ opacity: 0, x: 50 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  className="flex items-center justify-between p-4 bg-gradient-to-r from-teal-50 to-teal-100 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-8 h-8 text-teal-600" />
+                    <div>
+                      <p className="font-semibold text-gray-800">Active Rescuers</p>
+                      <p className="text-sm text-gray-600">Verified rescue volunteers</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-teal-600">{stats.activeRescuers}</p>
+                </motion.div>
+                <motion.div 
+                  initial={{ opacity: 0, x: 50 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  transition={{ delay: 0.5, duration: 0.5 }}
+                  className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <Award className="w-8 h-8 text-blue-600" />
+                    <div>
+                      <p className="font-semibold text-gray-800">Officials</p>
+                      <p className="text-sm text-gray-600">Government partners</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-blue-600">{stats.officials}</p>
+                </motion.div>
+              </div>
+            </Card>
+
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
