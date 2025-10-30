@@ -84,9 +84,17 @@ export default function Navbar() {
                   onClick={() => setShowDropdown(!showDropdown)}
                   className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-full font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg hover:shadow-xl text-sm"
                 >
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4" />
-                  </div>
+                  {profile?.avatar_url ? (
+                    <img 
+                      src={profile.avatar_url} 
+                      alt={profile.full_name || 'User'}
+                      className="w-8 h-8 rounded-full object-cover border-2 border-white/30"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4" />
+                    </div>
+                  )}
                   <span className="hidden md:inline">{profile?.full_name || 'User'}</span>
                   <ChevronDown className="w-4 h-4" />
                 </button>
