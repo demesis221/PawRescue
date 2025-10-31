@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import { Camera, MapPin, Upload, AlertTriangle, Clock, Phone, CheckCircle, Info, Maximize, X } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 
 export default function Report() {
+  const { user, profile } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     animalType: '',
+    breed: '',
     urgency: '',
     description: '',
     location: '',
@@ -20,6 +24,17 @@ export default function Report() {
     condition: '',
     coordinates: [10.3157, 123.8854]
   });
+
+  // Auto-fill contact info if user is logged in
+  useEffect(() => {
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        contactName: profile.full_name || '',
+        contactPhone: profile.phone || ''
+      }));
+    }
+  }, [profile]);
 
   function LocationMarker() {
     useMapEvents({
@@ -41,17 +56,62 @@ export default function Report() {
   }
   const [showModal, setShowModal] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setShowModal(true);
-    setTimeout(() => {
-      setFormData({ 
-        animalType: '', urgency: '', description: '', location: '', 
-        contactName: '', contactPhone: '', image: null, condition: '' 
+    setIsSubmitting(true);
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('animalType', formData.animalType);
+      formDataToSend.append('breed', formData.breed || 'Unknown');
+      formDataToSend.append('urgency', formData.urgency);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('location', formData.location);
+      formDataToSend.append('contactPhone', formData.contactPhone);
+      formDataToSend.append('coordinates', JSON.stringify(formData.coordinates));
+      
+      if (user) {
+        formDataToSend.append('userId', user.id);
+      }
+      
+      if (formData.image) {
+        formDataToSend.append('image', formData.image);
+      }
+
+      const response = await fetch('http://localhost:5000/api/reports', {
+        method: 'POST',
+        body: formDataToSend
       });
-      setCurrentStep(1);
-      setShowModal(false);
-    }, 3000);
+
+      const result = await response.json();
+
+      if (result.success) {
+        setShowModal(true);
+        setTimeout(() => {
+          setFormData({ 
+            animalType: '',
+            breed: '',
+            urgency: '', 
+            description: '', 
+            location: '', 
+            contactName: profile?.full_name || '', 
+            contactPhone: profile?.phone || '', 
+            image: null, 
+            condition: '',
+            coordinates: [10.3157, 123.8854]
+          });
+          setCurrentStep(1);
+          setShowModal(false);
+        }, 3000);
+      } else {
+        alert('Failed to submit report: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      alert('Failed to submit report. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 3));
@@ -137,6 +197,20 @@ export default function Report() {
                     </div>
 
                     <div>
+                      <label className="block text-sm font-semibold mb-3">Breed (Optional)</label>
+                      <input
+                        type="text"
+                        value={formData.breed}
+                        onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+                        placeholder="e.g., Golden Retriever, Persian"
+                        className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6 mt-6">
+
+                    <div>
                       <label className="block text-sm font-semibold mb-3">Urgency Level *</label>
                       <select
                         required
@@ -145,9 +219,9 @@ export default function Report() {
                         className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       >
                         <option value="">Select urgency</option>
-                        <option value="critical">🔴 Critical - Injured/Sick</option>
-                        <option value="high">🟡 High - Distressed</option>
-                        <option value="normal">🟢 Normal - Healthy but stray</option>
+                        <option value="high">🔴 High - Injured/Sick</option>
+                        <option value="medium">🟡 Medium - Distressed</option>
+                        <option value="low">🟢 Low - Healthy but stray</option>
                       </select>
                     </div>
                   </div>
@@ -239,20 +313,22 @@ export default function Report() {
                     <label className="block text-sm font-semibold mb-3 flex items-center gap-2">
                       <Camera className="w-4 h-4" /> Upload Photo
                     </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-orange-500 transition-colors cursor-pointer bg-gray-50 hover:bg-orange-50">
+                    <label className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-orange-500 transition-colors cursor-pointer bg-gray-50 hover:bg-orange-50 block">
                       <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                      <h3 className="font-semibold text-gray-700 mb-2">Upload a clear photo</h3>
+                      <h3 className="font-semibold text-gray-700 mb-2">
+                        {formData.image ? formData.image.name : 'Upload a clear photo'}
+                      </h3>
                       <p className="text-sm text-gray-600 mb-4">Help rescuers identify the animal quickly</p>
-                      <button type="button" className="btn-primary text-sm px-6 py-2">
-                        Choose File
-                      </button>
+                      <span className="btn-primary text-sm px-6 py-2 inline-block">
+                        {formData.image ? 'Change File' : 'Choose File'}
+                      </span>
                       <input 
                         type="file" 
                         accept="image/*" 
                         className="hidden" 
                         onChange={(e) => setFormData({ ...formData, image: e.target.files[0] })} 
                       />
-                    </div>
+                    </label>
                   </div>
                 </div>
               </Card>
@@ -269,30 +345,36 @@ export default function Report() {
                     Contact Information
                   </h2>
 
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold mb-3">Your Name *</label>
-                      <input
-                        required
-                        type="text"
-                        value={formData.contactName}
-                        onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-                        placeholder="Enter your full name"
-                        className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
+                  <div className="mb-6">
+                    <label className="block text-sm font-semibold mb-3">Your Name *</label>
+                    <input
+                      required
+                      type="text"
+                      value={formData.contactName}
+                      onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                      placeholder="Enter your full name"
+                      className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      readOnly={!!profile?.full_name}
+                    />
+                    {profile?.full_name && (
+                      <p className="text-sm text-gray-500 mt-2">✓ Auto-filled from your profile</p>
+                    )}
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold mb-3">Phone Number *</label>
-                      <input
-                        required
-                        type="tel"
-                        value={formData.contactPhone}
-                        onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                        placeholder="Enter your phone number"
-                        className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
+                  <div className="mb-6">
+                    <label className="block text-sm font-semibold mb-3">Phone Number *</label>
+                    <input
+                      required
+                      type="tel"
+                      value={formData.contactPhone}
+                      onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                      placeholder="Enter your phone number"
+                      className="w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      readOnly={!!profile?.phone}
+                    />
+                    {profile?.phone && (
+                      <p className="text-sm text-gray-500 mt-2">✓ Auto-filled from your profile</p>
+                    )}
                   </div>
 
                   <div className="mt-6 p-4 bg-blue-50 rounded-xl">
@@ -338,8 +420,12 @@ export default function Report() {
                   Next Step
                 </button>
               ) : (
-                <button type="submit" className="btn-primary px-8 py-3">
-                  Submit Report
+                <button 
+                  type="submit" 
+                  className="btn-primary px-8 py-3"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Report'}
                 </button>
               )}
             </div>
@@ -347,15 +433,90 @@ export default function Report() {
         </form>
       </div>
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Report Submitted Successfully!">
-        <div className="text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <p className="text-gray-600 mb-4">Thank you for reporting! Our rescue team has been notified and will respond as quickly as possible.</p>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <p className="text-sm text-green-700">Expected response time: 15-30 minutes</p>
-          </div>
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl"
+          >
+            {/* Success Header */}
+            <div className="bg-gradient-to-r from-green-500 to-teal-500 p-6 text-white text-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              >
+                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="w-10 h-10 text-green-500" />
+                </div>
+              </motion.div>
+              <h2 className="text-2xl font-bold mb-1">Report Submitted!</h2>
+              <p className="text-green-100 text-sm">Thank you for helping save a life</p>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Info Cards - 2 Column Grid */}
+              <div className="grid md:grid-cols-2 gap-3 mb-4">
+                <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
+                  <Clock className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-blue-900 text-sm">Quick Response</h4>
+                    <p className="text-xs text-blue-700">Team notified, 15-30 min response</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2 p-3 bg-orange-50 rounded-lg">
+                  <Phone className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-orange-900 text-sm">Stay Available</h4>
+                    <p className="text-xs text-orange-700">Keep phone nearby for updates</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Emergency & Summary - 2 Column Grid */}
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="p-3 bg-purple-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-5 h-5 text-purple-600" />
+                    <h4 className="font-semibold text-purple-900 text-sm">Emergency?</h4>
+                  </div>
+                  <p className="text-xs text-purple-700">Call: <span className="font-bold">+63 900 000 0000</span></p>
+                </div>
+
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 text-sm mb-2">Report Summary</h4>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Type:</span>
+                      <span className="font-medium text-gray-900 capitalize">{formData.animalType}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Urgency:</span>
+                      <span className={`font-medium capitalize ${
+                        formData.urgency === 'high' ? 'text-red-600' :
+                        formData.urgency === 'medium' ? 'text-yellow-600' :
+                        'text-green-600'
+                      }`}>{formData.urgency}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={() => setShowModal(false)}
+                className="w-full mt-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg hover:shadow-xl"
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
         </div>
-      </Modal>
+      )}
 
       {/* Fullscreen Map Modal */}
       {isMapFullscreen && (

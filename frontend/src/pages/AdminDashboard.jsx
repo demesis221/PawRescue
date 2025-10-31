@@ -1,72 +1,77 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, FileCheck, TrendingUp, PawPrint, AlertTriangle, Clock, CheckCircle, Heart, Eye, Edit, Trash2, Filter, Search, Calendar, MapPin, Phone, Mail, Shield, Award, BarChart3, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import InfoModal from '../components/InfoModal';
+import ReportDetailModal from '../components/ReportDetailModal';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedReport, setSelectedReport] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
-  
-  const [stats] = useState({
-    totalReports: 247,
-    rescued: 156,
-    adopted: 89,
-    pending: 12,
-    inProgress: 18,
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalReports: 0,
+    rescued: 0,
+    adopted: 0,
+    pending: 0,
+    inProgress: 0,
     totalUsers: 2341,
     activeRescuers: 45,
     officials: 8,
-    successRate: 94
+    successRate: 0
   });
 
-  const recentReports = [
-    {
-      id: 1,
-      type: 'dog',
-      breed: 'Golden Retriever',
-      location: 'Barangay Lahug',
-      status: 'rescued',
-      reportedBy: 'Maria Santos',
-      reportedAt: '2024-01-15 14:30',
-      urgency: 'high',
-      image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=100&h=100&fit=crop'
-    },
-    {
-      id: 2,
-      type: 'cat',
-      breed: 'Persian Mix',
-      location: 'Barangay Guadalupe',
-      status: 'adopted',
-      reportedBy: 'John Doe',
-      reportedAt: '2024-01-15 10:15',
-      urgency: 'medium',
-      image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=100&h=100&fit=crop'
-    },
-    {
-      id: 3,
-      type: 'dog',
-      breed: 'Mixed Breed',
-      location: 'Barangay Mabolo',
-      status: 'pending',
-      reportedBy: 'Lisa Chen',
-      reportedAt: '2024-01-15 08:45',
-      urgency: 'high',
-      image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=100&h=100&fit=crop'
-    },
-    {
-      id: 4,
-      type: 'cat',
-      breed: 'Siamese',
-      location: 'Barangay Capitol Site',
-      status: 'in_progress',
-      reportedBy: 'Alex Rivera',
-      reportedAt: '2024-01-14 16:20',
-      urgency: 'medium',
-      image: 'https://images.unsplash.com/photo-1574144611937-0df059b5ef3e?w=100&h=100&fit=crop'
+  // Fetch reports from backend
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const fetchReports = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/reports');
+      const result = await response.json();
+      
+      if (result.success) {
+        setReports(result.data);
+        
+        const totalReports = result.data.length;
+        const rescued = result.data.filter(r => r.status === 'rescued').length;
+        const adopted = result.data.filter(r => r.status === 'adopted').length;
+        const pending = result.data.filter(r => r.status === 'reported').length;
+        const inProgress = result.data.filter(r => r.status === 'in_progress').length;
+        const successRate = totalReports > 0 ? Math.round(((rescued + adopted) / totalReports) * 100) : 0;
+        
+        setStats(prev => ({
+          ...prev,
+          totalReports,
+          rescued,
+          adopted,
+          pending,
+          inProgress,
+          successRate
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const recentReports = reports.map(report => ({
+    id: report.id,
+    type: report.animal_type,
+    breed: report.breed || 'Unknown',
+    location: report.location_name,
+    status: report.status,
+    reportedBy: 'User',
+    reportedAt: new Date(report.created_at).toLocaleString(),
+    urgency: report.urgency,
+    image: report.image_urls && report.image_urls.length > 0 ? report.image_urls[0] : 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=100&h=100&fit=crop'
+  }));
 
   const users = [
     { id: 1, name: 'Maria Santos', role: 'rescuer', email: 'maria@example.com', reports: 23, joined: '2023-06-15' },
@@ -76,6 +81,7 @@ export default function AdminDashboard() {
   ];
 
   const statusColors = {
+    reported: 'bg-orange-500',
     pending: 'bg-orange-500',
     in_progress: 'bg-purple-500',
     rescued: 'bg-green-500',
@@ -91,6 +97,68 @@ export default function AdminDashboard() {
   const filteredReports = recentReports.filter(report => 
     filterStatus === 'all' || report.status === filterStatus
   );
+
+  const handleViewReport = (reportId) => {
+    const report = recentReports.find(r => r.id === reportId);
+    setSelectedReport(report);
+  };
+
+  const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'success', title: '', message: '', details: null, onConfirm: null });
+
+  const handleDeleteReport = (reportId) => {
+    setModalConfig({
+      isOpen: true,
+      type: 'confirm',
+      title: 'Delete Report?',
+      message: 'This action cannot be undone. The report will be permanently removed.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        setModalConfig({ ...modalConfig, isOpen: false });
+        performDelete(reportId);
+      }
+    });
+  };
+
+  const performDelete = async (reportId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/reports/${reportId}`, {
+        method: 'DELETE'
+      });
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setModalConfig({ isOpen: true, type: 'success', title: 'Report Deleted', message: 'The report has been successfully removed' });
+        await fetchReports();
+      } else {
+        setModalConfig({ isOpen: true, type: 'error', title: 'Delete Failed', message: result.message || 'Unknown error' });
+      }
+    } catch (error) {
+      console.error('Error deleting report:', error);
+      setModalConfig({ isOpen: true, type: 'error', title: 'Error', message: 'Failed to delete report. Please try again.' });
+    }
+  };
+
+  const handleUpdateStatus = async (reportId, newStatus) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/reports/${reportId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        setModalConfig({ isOpen: true, type: 'success', title: 'Status Updated', message: `Report status changed to ${newStatus.replace('_', ' ')}` });
+        fetchReports();
+      } else {
+        setModalConfig({ isOpen: true, type: 'error', title: 'Update Failed', message: result.message });
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      setModalConfig({ isOpen: true, type: 'error', title: 'Error', message: 'Failed to update status. Please try again.' });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -348,7 +416,7 @@ export default function AdminDashboard() {
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
+                  <option value="reported">Reported</option>
                   <option value="in_progress">In Progress</option>
                   <option value="rescued">Rescued</option>
                   <option value="adopted">Adopted</option>
@@ -391,13 +459,13 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{report.reportedAt}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex items-center gap-2">
-                            <button className="text-orange-600 hover:text-orange-900">
+                            <button onClick={() => handleViewReport(report.id)} className="text-orange-600 hover:text-orange-900">
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button className="text-blue-600 hover:text-blue-900">
+                            <button onClick={() => handleUpdateStatus(report.id, 'in_progress')} className="text-blue-600 hover:text-blue-900">
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button className="text-red-600 hover:text-red-900">
+                            <button onClick={() => handleDeleteReport(report.id)} className="text-red-600 hover:text-red-900">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -456,13 +524,13 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.joined}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex items-center gap-2">
-                            <button className="text-orange-600 hover:text-orange-900">
+                            <button onClick={() => alert('View user details')} className="text-orange-600 hover:text-orange-900">
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button className="text-blue-600 hover:text-blue-900">
+                            <button onClick={() => alert('Edit user')} className="text-blue-600 hover:text-blue-900">
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button className="text-red-600 hover:text-red-900">
+                            <button onClick={() => alert('Delete user')} className="text-red-600 hover:text-red-900">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -475,6 +543,25 @@ export default function AdminDashboard() {
             </Card>
           </div>
         )}
+
+        <ReportDetailModal 
+          isOpen={!!selectedReport} 
+          onClose={() => setSelectedReport(null)} 
+          report={selectedReport}
+          onStatusChange={handleUpdateStatus}
+        />
+
+        <InfoModal 
+          isOpen={modalConfig.isOpen} 
+          onClose={() => setModalConfig({ ...modalConfig, isOpen: false })} 
+          type={modalConfig.type}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          details={modalConfig.details}
+          onConfirm={modalConfig.onConfirm}
+          confirmText={modalConfig.confirmText}
+          cancelText={modalConfig.cancelText}
+        />
 
         {/* Analytics Tab */}
         {activeTab === 'analytics' && (
