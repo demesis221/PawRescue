@@ -1,0 +1,129 @@
+🧠 Frontend Development Plan (React.js)
+🎯 Goal
+
+Build a responsive, modern web app inspired by the Pettu ThemeForest template, focused on reporting, tracking, and rescuing stray animals.
+The UI should be clean, warm, and community-focused (orange, teal, and white tones).
+
+🗂️ Project Structure
+pawrescue/
+│
+├── src/
+│   ├── assets/           # Images, icons, logos
+│   ├── components/       # Reusable UI components
+│   │   ├── Navbar.jsx
+│   │   ├── Footer.jsx
+│   │   ├── Button.jsx
+│   │   ├── Card.jsx
+│   │   └── Modal.jsx
+│   │
+│   ├── pages/            # App pages
+│   │   ├── Home.jsx
+│   │   ├── Report.jsx
+│   │   ├── MapView.jsx
+│   │   ├── RescuerDashboard.jsx
+│   │   ├── AdminDashboard.jsx
+│   │   └── About.jsx
+│   │
+│   ├── context/          # Global context for auth + Supabase
+│   │   └── AuthContext.jsx
+│   │
+│   ├── utils/            # Helper functions, API requests
+│   │   └── supabaseClient.js
+│   │
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+│
+├── public/
+│   └── index.html
+│
+├── .env
+├── package.json
+└── README.md
+
+🧩 Key Frontend Features
+1️⃣ Home Page
+
+Hero banner: “Report. Rescue. Rehome.”
+
+Cards for quick navigation (Report Animal, View Map, Adopt a Pet)
+
+Testimonials & success stories
+
+Responsive Navbar + Footer
+
+2️⃣ Report Stray Animal Page
+
+Form to submit:
+
+📸 Upload image
+
+📍 Location (with map pin)
+
+📝 Description & animal details
+
+Data sent to Supabase storage & database
+
+Confirmation modal after submission
+
+3️⃣ Interactive Map Page
+
+Displays all reports from Supabase
+
+Pins colored by status:
+
+🟠 Reported
+
+🟢 Rescued
+
+🔵 Adopted
+
+Click on a pin → opens report details popup
+
+4️⃣ Rescuer Dashboard
+
+Login via Supabase Auth
+
+View nearby reports
+
+Update status (Rescued / Adopted / Still Stray)
+
+Filter by date, area, or status
+
+5️⃣ Admin Dashboard
+
+Manage all user roles (Residents, Rescuers, Officials)
+
+Verify reports
+
+Approve or archive reports
+
+Generate simple analytics (e.g., total rescues, adoption rate)
+
+6️⃣ About Page
+
+Mission & vision
+
+Contact form
+
+Team / partners / NGOs
+
+🎨 Design System (Pettu Theme-inspired)
+Element	Style
+Primary Color	#FF7A00 (warm orange)
+Secondary Color	#2C6975 (calm teal)
+Background	#F9FAFB
+Fonts	Poppins / Montserrat
+Buttons	Rounded (border-radius: 12px)
+Cards	Soft shadows + hover lift effect
+Animations	Framer Motion for fade-ins / smooth modals
+⚙️ Tech Stack
+Layer	Technology
+Frontend Framework	React.js (Vite setup)
+Routing	React Router
+Styling	Tailwind CSS
+Maps	Leaflet.js or Google Maps API
+State Management	Context API or Zustand
+Backend (API)	Node.js + Express
+Database / Auth / Storage	Supabase
+
