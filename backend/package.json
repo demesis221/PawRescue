@@ -1,7 +1,7 @@
 {
   "name": "pawrescue-backend",
   "version": "1.0.0",
-  "description": "PawRescue Backend API",
+  "description": "PawRescue Express Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

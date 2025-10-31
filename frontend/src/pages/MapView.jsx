@@ -1,88 +1,75 @@
-import { useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Filter, Search, Clock, Heart, AlertTriangle, CheckCircle, Eye, Calendar, Phone } from 'lucide-react';
+import { MapPin, Filter, Search, Clock, Heart, AlertTriangle, CheckCircle, Eye, Calendar, Phone, Loader } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import { reports, subscriptions } from '../lib/supabase';
 
-const mockReports = [
-  { 
-    id: 1, 
-    type: 'dog', 
-    breed: 'Mixed Breed',
-    location: 'Barangay Lahug, Cebu City', 
-    status: 'reported', 
-    lat: 10.3157, 
-    lng: 123.8854,
-    reportedBy: 'Maria Santos',
-    reportedAt: '2 hours ago',
-    description: 'Injured stray dog near IT Park, limping on left leg',
-    urgency: 'high',
-    image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=300&h=200&fit=crop'
-  },
-  { 
-    id: 2, 
-    type: 'cat', 
-    breed: 'Persian Mix',
-    location: 'Barangay Guadalupe, Cebu City', 
-    status: 'rescued', 
-    lat: 10.3110, 
-    lng: 123.8920,
-    reportedBy: 'John Doe',
-    reportedAt: '1 day ago',
-    description: 'Friendly cat found in parking lot, appears well-fed',
-    urgency: 'medium',
-    image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=300&h=200&fit=crop'
-  },
-  { 
-    id: 3, 
-    type: 'dog', 
-    breed: 'Golden Retriever',
-    location: 'Barangay Mabolo, Cebu City', 
-    status: 'adopted', 
-    lat: 10.3280, 
-    lng: 123.8950,
-    reportedBy: 'Lisa Chen',
-    reportedAt: '3 days ago',
-    description: 'Lost dog found wearing collar, very friendly',
-    urgency: 'low',
-    image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=300&h=200&fit=crop'
-  },
-  { 
-    id: 4, 
-    type: 'cat', 
-    breed: 'Siamese',
-    location: 'Barangay Capitol Site, Cebu City', 
-    status: 'in_progress', 
-    lat: 10.3200, 
-    lng: 123.8900,
-    reportedBy: 'Alex Rivera',
-    reportedAt: '5 hours ago',
-    description: 'Kitten stuck under car, rescue team dispatched',
-    urgency: 'high',
-    image: 'https://images.unsplash.com/photo-1574144611937-0df059b5ef3e?w=300&h=200&fit=crop'
-  },
-  { 
-    id: 5, 
-    type: 'dog', 
-    breed: 'Labrador Mix',
-    location: 'Barangay Banilad, Cebu City', 
-    status: 'reported', 
-    lat: 10.3350, 
-    lng: 123.9100,
-    reportedBy: 'Sarah Johnson',
-    reportedAt: '30 minutes ago',
-    description: 'Pregnant dog seeking shelter near construction site',
-    urgency: 'high',
-    image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=300&h=200&fit=crop'
-  }
-];
+function MapController({ center, zoom, openMarkerId, markers }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (center) {
+      map.setView(center, zoom || 15, { animate: true, duration: 1 });
+    }
+  }, [center, zoom, map]);
+
+  useEffect(() => {
+    if (openMarkerId && markers[openMarkerId]) {
+      setTimeout(() => {
+        console.log('Opening popup for:', openMarkerId);
+        markers[openMarkerId].openPopup();
+      }, 800);
+    } else if (openMarkerId) {
+      console.log('Marker not found for:', openMarkerId, 'Available:', Object.keys(markers));
+    }
+  }, [openMarkerId, markers]);
+
+  return null;
+}
 
 export default function MapView() {
   const [filter, setFilter] = useState('all');
   const [selectedReport, setSelectedReport] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [reportsList, setReportsList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mapCenter, setMapCenter] = useState([10.3157, 123.8854]);
+  const [mapZoom, setMapZoom] = useState(13);
+  const [openMarkerId, setOpenMarkerId] = useState(null);
+  const markerRefs = useRef({});
+
+  useEffect(() => {
+    loadReports();
+    
+    const channel = subscriptions.subscribeToReports(() => {
+      loadReports();
+    });
+    
+    return () => subscriptions.unsubscribe(channel);
+  }, []);
+
+  const loadReports = async () => {
+    setLoading(true);
+    const { data, error } = await reports.getAll();
+    if (!error && data) {
+      setReportsList(data);
+    }
+    setLoading(false);
+  };
+
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+    return `${Math.floor(seconds / 86400)} days ago`;
+  };
 
   const statusColors = {
     reported: 'bg-orange-500',
@@ -114,21 +101,35 @@ export default function MapView() {
     });
   };
 
-  const filteredReports = mockReports.filter(report => {
+  const filteredReports = reportsList.filter(report => {
     const matchesFilter = filter === 'all' || report.status === filter;
-    const matchesSearch = report.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.breed.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = report.location_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.animal_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (report.breed && report.breed.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesFilter && matchesSearch;
   });
 
   const stats = {
-    total: mockReports.length,
-    reported: mockReports.filter(r => r.status === 'reported').length,
-    rescued: mockReports.filter(r => r.status === 'rescued').length,
-    adopted: mockReports.filter(r => r.status === 'adopted').length,
-    in_progress: mockReports.filter(r => r.status === 'in_progress').length
+    total: reportsList.length,
+    reported: reportsList.filter(r => r.status === 'reported').length,
+    rescued: reportsList.filter(r => r.status === 'rescued').length,
+    adopted: reportsList.filter(r => r.status === 'adopted').length,
+    in_progress: reportsList.filter(r => r.status === 'in_progress').length
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-12 h-12 text-orange-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading rescue map...</p>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('Reports loaded:', reportsList.length);
+  console.log('Filtered reports:', filteredReports.length);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -234,13 +235,25 @@ export default function MapView() {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
+                <MapController center={mapCenter} zoom={mapZoom} openMarkerId={openMarkerId} markers={markerRefs.current} />
                 {filteredReports.map(report => (
-                  <Marker key={report.id} position={[report.lat, report.lng]} icon={getMarkerIcon(report.urgency)}>
+                  <Marker 
+                    key={report.id} 
+                    position={[report.latitude, report.longitude]} 
+                    icon={getMarkerIcon(report.urgency)}
+                    eventHandlers={{
+                      add: (e) => {
+                        markerRefs.current[report.id] = e.target;
+                      }
+                    }}
+                  >
                     <Popup>
                       <div className="p-2">
-                        <img src={report.image} alt={report.breed} className="w-full h-32 object-cover rounded-lg mb-2" />
-                        <h3 className="font-bold text-lg mb-1">{report.breed}</h3>
-                        <p className="text-sm text-gray-600 mb-2">{report.location}</p>
+                        {report.image_urls && report.image_urls[0] && (
+                          <img src={report.image_urls[0]} alt={report.breed || report.animal_type} className="w-full h-32 object-cover rounded-lg mb-2" />
+                        )}
+                        <h3 className="font-bold text-lg mb-1 capitalize">{report.breed || report.animal_type}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{report.location_name}</p>
                         <div className="flex items-center gap-2 mb-2">
                           <span className={`px-2 py-1 rounded-full text-xs text-white ${statusColors[report.status]}`}>
                             {report.status.replace('_', ' ').toUpperCase()}
@@ -267,6 +280,13 @@ export default function MapView() {
               <span className="text-sm text-gray-500">{filteredReports.length} results</span>
             </div>
             <div className="max-h-[700px] overflow-y-auto space-y-3">
+              {filteredReports.length === 0 && (
+                <Card className="p-8 text-center">
+                  <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <h3 className="font-semibold text-gray-700 mb-2">No Reports Found</h3>
+                  <p className="text-sm text-gray-500">Submit a report to see it on the map</p>
+                </Card>
+              )}
               {filteredReports.map((report, index) => {
                 const StatusIcon = statusIcons[report.status];
                 return (
@@ -278,19 +298,32 @@ export default function MapView() {
                   >
                     <Card 
                       hover 
-                      className={`cursor-pointer border-l-4 ${urgencyColors[report.urgency]} transition-all duration-200`} 
-                      onClick={() => setSelectedReport(report)}
+                      className={`cursor-pointer border-l-4 ${urgencyColors[report.urgency]} transition-all duration-200 hover:shadow-lg`} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('Clicking card for report:', report.id);
+                        console.log('Coordinates:', report.latitude, report.longitude);
+                        setMapCenter([report.latitude, report.longitude]);
+                        setMapZoom(17);
+                        setTimeout(() => setOpenMarkerId(report.id), 100);
+                      }}
                     >
                       <div className="flex gap-4">
-                        <img 
-                          src={report.image} 
-                          alt={`${report.type} in ${report.location}`}
-                          className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
-                        />
+                        {report.image_urls && report.image_urls[0] ? (
+                          <img 
+                            src={report.image_urls[0]} 
+                            alt={`${report.animal_type} in ${report.location_name}`}
+                            className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-gray-200 rounded-lg flex-shrink-0 flex items-center justify-center">
+                            <MapPin className="w-6 h-6 text-gray-400" />
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-2">
                             <h4 className="font-bold text-gray-800 capitalize truncate">
-                              {report.breed} {report.type}
+                              {report.breed || report.animal_type}
                             </h4>
                             <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs text-white ${statusColors[report.status]}`}>
                               <StatusIcon className="w-3 h-3" />
@@ -298,14 +331,14 @@ export default function MapView() {
                             </div>
                           </div>
                           <p className="text-sm text-gray-600 mb-2 line-clamp-2">{report.description}</p>
-                          <div className="flex items-center justify-between text-xs text-gray-500">
+                          <div className="flex flex-col gap-1 text-xs text-gray-500">
                             <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              <span className="truncate">{report.location}</span>
+                              <MapPin className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{report.location_name}</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span>{report.reportedAt}</span>
+                              <Clock className="w-3 h-3 flex-shrink-0" />
+                              <span className="whitespace-nowrap">{formatTimeAgo(report.created_at)}</span>
                             </div>
                           </div>
                         </div>
@@ -323,14 +356,21 @@ export default function MapView() {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto scrollbar-hide"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               <div className="relative">
-                <img 
-                  src={selectedReport.image} 
-                  alt={`${selectedReport.type} in ${selectedReport.location}`}
-                  className="w-full h-64 object-cover rounded-t-2xl"
-                />
+                {selectedReport.image_urls && selectedReport.image_urls[0] ? (
+                  <img 
+                    src={selectedReport.image_urls[0]} 
+                    alt={`${selectedReport.animal_type} in ${selectedReport.location_name}`}
+                    className="w-full h-64 object-cover rounded-t-2xl"
+                  />
+                ) : (
+                  <div className="w-full h-64 bg-gray-200 rounded-t-2xl flex items-center justify-center">
+                    <MapPin className="w-16 h-16 text-gray-400" />
+                  </div>
+                )}
                 <button 
                   onClick={() => setSelectedReport(null)}
                   className="absolute top-4 right-4 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
@@ -346,11 +386,11 @@ export default function MapView() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-800 capitalize mb-1">
-                      {selectedReport.breed} {selectedReport.type}
+                      {selectedReport.breed || selectedReport.animal_type}
                     </h2>
                     <div className="flex items-center gap-2 text-gray-600">
                       <MapPin className="w-4 h-4" />
-                      <span>{selectedReport.location}</span>
+                      <span>{selectedReport.location_name}</span>
                     </div>
                   </div>
                   <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -374,28 +414,42 @@ export default function MapView() {
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2">
                           <Eye className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">Reported by: {selectedReport.reportedBy}</span>
+                          <span className="text-gray-600">Reported by: {selectedReport.profiles?.full_name || 'Anonymous'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">Time: {selectedReport.reportedAt}</span>
+                          <span className="text-gray-600">Time: {formatTimeAgo(selectedReport.created_at)}</span>
                         </div>
+                        {selectedReport.contact_phone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-600">{selectedReport.contact_phone}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-800 mb-2">Location</h4>
                       <div className="text-sm text-gray-600">
-                        <p>Coordinates: {selectedReport.lat}, {selectedReport.lng}</p>
+                        <p>Coordinates: {selectedReport.latitude}, {selectedReport.longitude}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex gap-3 pt-4">
-                    <Button className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700">
-                      <Phone className="w-4 h-4 mr-2" />
-                      Contact Reporter
-                    </Button>
-                    <Button className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700">
+                    {selectedReport.contact_phone && (
+                      <Button 
+                        onClick={() => window.location.href = `tel:${selectedReport.contact_phone}`}
+                        className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                      >
+                        <Phone className="w-4 h-4 mr-2" />
+                        Contact Reporter
+                      </Button>
+                    )}
+                    <Button 
+                      onClick={() => window.open(`https://www.google.com/maps?q=${selectedReport.latitude},${selectedReport.longitude}`, '_blank')}
+                      className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
+                    >
                       <MapPin className="w-4 h-4 mr-2" />
                       View on Map
                     </Button>

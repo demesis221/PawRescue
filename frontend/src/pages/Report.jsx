@@ -3,15 +3,18 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import { Camera, MapPin, Upload, AlertTriangle, Clock, Phone, CheckCircle, Info, Maximize, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Modal from '../components/Modal';
 
 export default function Report() {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     animalType: '',
     breed: '',
@@ -54,25 +57,26 @@ export default function Report() {
     });
     return <Marker position={formData.coordinates} />;
   }
-  const [showModal, setShowModal] = useState(false);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
+      if (!user) {
+        alert('Please login to submit a report');
+        navigate('/login');
+        return;
+      }
+
       const formDataToSend = new FormData();
+      formDataToSend.append('userId', user.id);
       formDataToSend.append('animalType', formData.animalType);
-      formDataToSend.append('breed', formData.breed || 'Unknown');
+      formDataToSend.append('breed', formData.breed || '');
       formDataToSend.append('urgency', formData.urgency);
       formDataToSend.append('description', formData.description);
       formDataToSend.append('location', formData.location);
       formDataToSend.append('contactPhone', formData.contactPhone);
       formDataToSend.append('coordinates', JSON.stringify(formData.coordinates));
-      
-      if (user) {
-        formDataToSend.append('userId', user.id);
-      }
       
       if (formData.image) {
         formDataToSend.append('image', formData.image);
@@ -102,6 +106,7 @@ export default function Report() {
           });
           setCurrentStep(1);
           setShowModal(false);
+          navigate('/map');
         }, 3000);
       } else {
         alert('Failed to submit report: ' + result.message);
